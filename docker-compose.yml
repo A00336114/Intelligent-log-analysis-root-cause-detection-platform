@@ -1,0 +1,194 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: platform_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - platform_network
+
+  user-service:
+    build:
+      context: ./backend/user-service
+    container_name: user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVICE_NAME: user-service
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - logstash
+    networks:
+      - platform_network
+
+  transaction-service:
+    build:
+      context: ./backend/transaction-service
+    container_name: transaction-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVICE_NAME: transaction-service
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+      - user-service
+      - logstash
+    networks:
+      - platform_network
+
+  payment-service:
+    build:
+      context: ./backend/payment-service
+    container_name: payment-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVICE_NAME: payment-service
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - logstash
+    networks:
+      - platform_network
+
+  log-generator-service:
+    build:
+      context: ./backend/log-generator-service
+    container_name: log-generator-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVICE_NAME: log-generator-service
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+      BATCH_SCHEDULE_FIXED_RATE_MS: 120000
+      BATCH_SCHEDULE_INITIAL_DELAY_MS: 60000
+    ports:
+      - "8084:8084"
+    depends_on:
+      - user-service
+      - transaction-service
+      - payment-service
+      - logstash
+    networks:
+      - platform_network
+
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+    container_name: api-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVICE_NAME: api-gateway
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+    ports:
+      - "8085:8080"
+    depends_on:
+      - user-service
+      - transaction-service
+      - payment-service
+    networks:
+      - platform_network
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - user-service
+      - transaction-service
+      - payment-service
+      - log-generator-service
+      - api-gateway
+    networks:
+      - platform_network
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - platform_network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - platform_network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.2
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - platform_network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.2
+    container_name: logstash
+    ports:
+      - "5000:5000"
+      - "9600:9600"
+    volumes:
+      - ./logging-stack/logstash/pipeline:/usr/share/logstash/pipeline
+    depends_on:
+      - elasticsearch
+    networks:
+      - platform_network
+
+networks:
+  platform_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+  prometheus_data:
+  grafana_data:

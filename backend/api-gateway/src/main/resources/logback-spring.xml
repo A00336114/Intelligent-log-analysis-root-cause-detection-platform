@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="serviceName" value="${SERVICE_NAME:-unknown}"/>
+
+    <appender name="jsonConsole" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel/>
+                <loggerName/>
+                <contextName/>
+                <pattern>
+                    <pattern>
+                        {
+                        "service_name": "${serviceName}",
+                        "trace_id": "%mdc{X-B3-TraceId:-none}",
+                        "message": "%msg",
+                        "exception": "%ex"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <springProfile name="docker">
+        <property name="logstashDestination" value="${LOGSTASH_HOST:-logstash}:${LOGSTASH_PORT:-5000}"/>
+
+        <appender name="logstashTcp" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>${logstashDestination}</destination>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <timeZone>UTC</timeZone>
+                    </timestamp>
+                    <logLevel/>
+                    <loggerName/>
+                    <contextName/>
+                    <pattern>
+                        <pattern>
+                            {
+                            "service_name": "${serviceName}",
+                            "trace_id": "%mdc{X-B3-TraceId:-none}",
+                            "message": "%msg",
+                            "exception": "%ex"
+                            }
+                        </pattern>
+                    </pattern>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="jsonConsole" />
+            <appender-ref ref="logstashTcp" />
+        </root>
+    </springProfile>
+
+    <springProfile name="!docker">
+        <root level="INFO">
+            <appender-ref ref="jsonConsole" />
+        </root>
+    </springProfile>
+</configuration>
