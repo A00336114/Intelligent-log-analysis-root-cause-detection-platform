@@ -32,9 +32,9 @@ jobs:
         run: mvn clean package -DskipTests
         working-directory: backend/user-service
 
-      - name: Build Account Service
+      - name: Build Log Generator Service
         run: mvn clean package -DskipTests
-        working-directory: backend/account-service
+        working-directory: backend/log-generator-service
 
       - name: Build Transaction Service
         run: mvn clean package -DskipTests
