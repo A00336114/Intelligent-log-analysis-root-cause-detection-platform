@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,15 @@ public class AutomatedBatchService {
     private static final Logger log = LoggerFactory.getLogger(AutomatedBatchService.class);
     private static final String PASSWORD = "1234";
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public AutomatedBatchService(RestTemplateBuilder restTemplateBuilder) {
+        this(restTemplateBuilder.build());
+    }
+
+    AutomatedBatchService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @Value("${services.user.base-url:http://user-service:8081/api/users}")
     private String userServiceUrl;

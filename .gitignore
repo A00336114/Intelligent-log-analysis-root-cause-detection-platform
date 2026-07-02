@@ -1,13 +1,17 @@
+# Runtime data
 data/
-**/target/
-*.log
+data_backup/
 
-.project
-.classpath
-.settings/
+# Maven
+**/target/
+
+# Logs
+*.log
+*.pid
+
+# IDE
 .idea/
 .vscode/
-*.iml
 
-__pycache__/
-*.pyc
+# Environment
+.env

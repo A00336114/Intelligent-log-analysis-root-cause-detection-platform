@@ -183,6 +183,20 @@ services:
     networks:
       - platform_network
 
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: banking-jenkins
+    user: root
+    ports:
+      - "8088:8080"
+      - "50000:50000"
+    volumes:
+      - banking_jenkins_home:/var/jenkins_home
+      - //var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - platform_network
+
 networks:
   platform_network:
     driver: bridge
@@ -192,3 +206,4 @@ volumes:
   elasticsearch_data:
   prometheus_data:
   grafana_data:
+  banking_jenkins_home:
