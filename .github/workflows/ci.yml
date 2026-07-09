@@ -10,13 +10,13 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 env:
   JAVA_VERSION: "21"
   PYTHON_VERSION: "3.11"
-  JAVA_TOOL_OPTIONS: ""
-  JDK_JAVA_OPTIONS: ""
-  _JAVA_OPTIONS: ""
-  MAVEN_OPTS: ""
 
 jobs:
   build-java:
@@ -36,6 +36,7 @@ jobs:
 
       - name: Print Java diagnostics
         run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
           echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-<empty>}"
           echo "JDK_JAVA_OPTIONS=${JDK_JAVA_OPTIONS:-<empty>}"
           echo "_JAVA_OPTIONS=${_JAVA_OPTIONS:-<empty>}"
@@ -44,10 +45,13 @@ jobs:
           mvn -version
 
       - name: Build common library
-        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
+        run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
+          mvn -B clean install -DskipTests --file backend/common-library/pom.xml
 
       - name: Package Java services
         run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
           for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
             mvn -B clean package -DskipTests --file "backend/${module}/pom.xml"
           done
@@ -90,13 +94,18 @@ jobs:
           cache: maven
 
       - name: Install common library for dependent modules
-        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
+        run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
+          mvn -B clean install -DskipTests --file backend/common-library/pom.xml
 
       - name: Run common library tests
-        run: mvn -B test --file backend/common-library/pom.xml
+        run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
+          mvn -B test --file backend/common-library/pom.xml
 
       - name: Run service tests
         run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
           for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
             mvn -B test --file "backend/${module}/pom.xml"
           done
@@ -120,10 +129,13 @@ jobs:
           cache: maven
 
       - name: Build common library
-        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
+        run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
+          mvn -B clean install -DskipTests --file backend/common-library/pom.xml
 
       - name: Package Java services for Docker images
         run: |
+          unset JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS MAVEN_OPTS
           for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
             mvn -B clean package -DskipTests --file "backend/${module}/pom.xml"
           done
