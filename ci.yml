@@ -13,6 +13,10 @@ permissions:
 env:
   JAVA_VERSION: "21"
   PYTHON_VERSION: "3.11"
+  JAVA_TOOL_OPTIONS: ""
+  JDK_JAVA_OPTIONS: ""
+  _JAVA_OPTIONS: ""
+  MAVEN_OPTS: ""
 
 jobs:
   build-java:
@@ -29,6 +33,15 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
+
+      - name: Print Java diagnostics
+        run: |
+          echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-<empty>}"
+          echo "JDK_JAVA_OPTIONS=${JDK_JAVA_OPTIONS:-<empty>}"
+          echo "_JAVA_OPTIONS=${_JAVA_OPTIONS:-<empty>}"
+          echo "MAVEN_OPTS=${MAVEN_OPTS:-<empty>}"
+          java -version
+          mvn -version
 
       - name: Build common library
         run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
