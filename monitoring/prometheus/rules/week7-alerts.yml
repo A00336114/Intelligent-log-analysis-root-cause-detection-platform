@@ -1,0 +1,18 @@
+groups:
+  - name: week7-incidents
+    rules:
+      - alert: PaymentServiceBlockedPayments
+        expr: increase(http_server_requests_seconds_count{job="payment-service",status="400"}[2m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service_name: payment-service
+          source: prometheus
+          failure_type: PAYMENT_BLOCKED
+        annotations:
+          summary: Payment service returned blocked payment responses
+          description: Payment-service produced HTTP 400 responses that indicate blocked high-value payments.
+          traceId: payment-blocked-alert
+          statusCode: "400"
+          failureType: PAYMENT_BLOCKED
+          rawLog: "ERROR service=payment-service traceId=payment-blocked-alert status=400 failure=PAYMENT_BLOCKED java.lang.IllegalStateException: High value payment blocked for risk review"

@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +23,7 @@ public class AutomatedBatchService {
 
     private final RestTemplate restTemplate;
 
+    @Autowired
     public AutomatedBatchService(RestTemplateBuilder restTemplateBuilder) {
         this(restTemplateBuilder.build());
     }

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Incident Service Webhook
+    receivers:
+      - uid: ffqxr4x7sxkw0f
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          httpMethod: POST
+          url: http://incident-service:8090/api/incidents/webhook

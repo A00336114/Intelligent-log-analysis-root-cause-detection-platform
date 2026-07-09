@@ -1,0 +1,11 @@
+route:
+  receiver: incident-service-webhook
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: incident-service-webhook
+    webhook_configs:
+      - url: http://incident-service:8086/api/incidents/alerts
+        send_resolved: false

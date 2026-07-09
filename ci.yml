@@ -1,46 +1,122 @@
-name: CI Pipeline
+name: Banking CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: "21"
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  build:
+  build-java:
+    name: Build Java Services
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
 
-      - name: Build Common Library
-        run: mvn clean install -DskipTests
-        working-directory: backend/common-library
+      - name: Build common library
+        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
 
-      - name: Build API Gateway
-        run: mvn clean package -DskipTests
-        working-directory: backend/api-gateway
+      - name: Package Java services
+        run: |
+          for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
+            mvn -B clean package -DskipTests --file "backend/${module}/pom.xml"
+          done
 
-      - name: Build User Service
-        run: mvn clean package -DskipTests
-        working-directory: backend/user-service
+  validate-python:
+    name: Validate Python Log Parser
+    runs-on: ubuntu-latest
 
-      - name: Build Account Service
-        run: mvn clean package -DskipTests
-        working-directory: backend/account-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build Transaction Service
-        run: mvn clean package -DskipTests
-        working-directory: backend/transaction-service
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: log-parser-service/requirements.txt
 
-      - name: Build Payment Service
-        run: mvn clean package -DskipTests
-        working-directory: backend/payment-service:wq!
+      - name: Install parser dependencies
+        run: pip install -r log-parser-service/requirements.txt
 
+      - name: Compile parser source
+        run: python -m py_compile log-parser-service/app.py
+
+  test-java:
+    name: Run Java Tests
+    runs-on: ubuntu-latest
+    needs: build-java
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Install common library for dependent modules
+        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
+
+      - name: Run common library tests
+        run: mvn -B test --file backend/common-library/pom.xml
+
+      - name: Run service tests
+        run: |
+          for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
+            mvn -B test --file "backend/${module}/pom.xml"
+          done
+
+  docker:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    needs:
+      - test-java
+      - validate-python
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build common library
+        run: mvn -B clean install -DskipTests --file backend/common-library/pom.xml
+
+      - name: Package Java services for Docker images
+        run: |
+          for module in api-gateway user-service log-generator-service transaction-service payment-service incident-service; do
+            mvn -B clean package -DskipTests --file "backend/${module}/pom.xml"
+          done
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config -q
+
+      - name: Build Docker images
+        run: docker compose build
