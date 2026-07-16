@@ -9,4 +9,4 @@ contactPoints:
         disableResolveMessage: false
         settings:
           httpMethod: POST
-          url: http://incident-service:8090/api/incidents/webhook
+          url: http://incident-service:8086/api/incidents/alerts

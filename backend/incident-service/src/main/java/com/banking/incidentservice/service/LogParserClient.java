@@ -5,6 +5,8 @@ import com.banking.incidentservice.dto.ParsedLogResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -33,5 +35,18 @@ public class LogParserClient {
         }
 
         return response;
+    }
+
+    public ParsedLogResponse findByIncidentId(Long incidentId) {
+        try {
+            return restTemplate.getForObject(
+                    parserBaseUrl + "/parsed-logs/" + incidentId,
+                    ParsedLogResponse.class
+            );
+        } catch (HttpClientErrorException.NotFound ignored) {
+            return null;
+        } catch (RestClientException ignored) {
+            return null;
+        }
     }
 }

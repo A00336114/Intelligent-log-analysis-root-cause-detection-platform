@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incident Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <nav class="topbar" aria-label="Dashboard navigation">
+      <strong>Incident Dashboard</strong>
+    </nav>
+
+    <section class="hero">
+      <span class="eyebrow">Incident Dashboard</span>
+      <div class="hero__content">
+        <div>
+          <h1>Manage incidents</h1>
+          <p>Review incidents, parser status, trace IDs, raw logs, and parsed log fields.</p>
+        </div>
+        <div class="hero__actions">
+          <button class="button button--primary" type="button" data-refresh-button>Refresh</button>
+          <a class="button button--ghost" href="/api/incidents" target="_blank" rel="noreferrer">Open API JSON</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="summary-grid" aria-label="Incident summary">
+      <article class="summary-card">
+        <span>Total incidents</span>
+        <strong data-summary-total>0</strong>
+      </article>
+      <article class="summary-card">
+        <span>Open now</span>
+        <strong data-summary-open>0</strong>
+      </article>
+      <article class="summary-card">
+        <span>Parser completed</span>
+        <strong data-summary-parsed>0</strong>
+      </article>
+      <article class="summary-card">
+        <span>Parser failed</span>
+        <strong data-summary-failed>0</strong>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <section class="panel panel--incidents" aria-label="Incident list">
+        <header class="panel__header">
+          <div>
+            <h2>Review your incidents</h2>
+            <p>Click any incident number to open the full incident details.</p>
+          </div>
+          <span class="last-updated" data-last-updated>Waiting for refresh</span>
+        </header>
+        <div class="panel__tools">
+          <input
+            class="search"
+            type="search"
+            placeholder="Search incidents"
+            data-search-input
+            aria-label="Search incidents"
+          >
+          <div class="filters" role="group" aria-label="Parser status filter">
+            <button class="filter-chip is-selected" type="button" data-filter="ALL">All</button>
+            <button class="filter-chip" type="button" data-filter="COMPLETED">Completed</button>
+            <button class="filter-chip" type="button" data-filter="PENDING">Pending</button>
+            <button class="filter-chip" type="button" data-filter="FAILED">Failed</button>
+          </div>
+        </div>
+        <div class="incident-table-wrap">
+          <table class="incident-table">
+            <thead>
+              <tr>
+                <th>Incident</th>
+                <th>Created</th>
+                <th>Service</th>
+                <th>State</th>
+                <th>Priority</th>
+                <th>Parser</th>
+                <th>Trace ID</th>
+              </tr>
+            </thead>
+            <tbody data-incident-list></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="side-rail" aria-label="Operational quick stats">
+        <article class="mini-card">
+          <span>Critical incidents</span>
+          <strong data-summary-critical>0</strong>
+        </article>
+        <article class="mini-card">
+          <span>New today</span>
+          <strong data-summary-new>0</strong>
+        </article>
+        <article class="mini-card mini-card--note">
+          <span>How to use</span>
+          <p>Open an incident to see parser output, raw log, notes, and manual status update.</p>
+        </article>
+      </aside>
+    </section>
+
+    <section class="detail-overlay" data-detail-overlay hidden>
+      <section class="detail-panel" data-detail-panel hidden aria-label="Incident detail">
+        <header class="detail-panel__header">
+          <div>
+            <button class="link-button" type="button" data-detail-close>Back to incidents</button>
+            <h2 data-detail-title>Incident detail</h2>
+            <p class="detail-meta" data-detail-meta></p>
+          </div>
+          <div class="detail-header-actions">
+            <div class="detail-panel__pills">
+              <span class="pill pill--neutral" data-detail-status-pill>Status</span>
+              <span class="pill pill--info" data-detail-severity-pill>Severity</span>
+              <span class="pill pill--warning" data-detail-parser-pill>Parser</span>
+            </div>
+            <button class="icon-button" type="button" data-detail-x aria-label="Close incident detail">x</button>
+          </div>
+        </header>
+
+        <div class="detail-panel__body">
+          <section class="detail-grid">
+            <article class="detail-section">
+              <h3>Parser message</h3>
+              <div class="detail-message">
+                <strong data-detail-trace></strong>
+                <span data-detail-parser-message></span>
+              </div>
+            </article>
+            <article class="detail-section">
+              <h3>Timeline</h3>
+              <div class="detail-stats" data-detail-timeline></div>
+            </article>
+          </section>
+
+          <article class="detail-section">
+            <h3>Parsed log</h3>
+            <div class="parsed-grid" data-detail-parsed></div>
+          </article>
+
+          <article class="detail-section">
+            <h3>Manual update</h3>
+            <form class="update-form" data-update-form>
+              <label class="field">
+                <span>Status</span>
+                <select class="select" data-update-status aria-label="Incident status">
+                  <option value="OPEN">OPEN</option>
+                  <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
+                  <option value="RESOLVED">RESOLVED</option>
+                  <option value="FAILED">FAILED</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Notes</span>
+                <textarea
+                  class="textarea"
+                  rows="4"
+                  data-update-notes
+                  placeholder="Add investigation notes or a short resolution summary"
+                ></textarea>
+              </label>
+
+              <div class="update-actions">
+                <button class="button button--primary" type="submit" data-update-save>Save update</button>
+                <button class="button button--success" type="button" data-update-resolve>Mark resolved</button>
+                <span class="form-message" data-update-message aria-live="polite"></span>
+              </div>
+            </form>
+          </article>
+
+          <article class="detail-section">
+            <h3>Raw log</h3>
+            <pre class="code-block" data-detail-raw-log></pre>
+          </article>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

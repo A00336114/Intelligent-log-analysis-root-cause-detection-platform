@@ -1,17 +1,17 @@
 {
-  "source": "manual-review-demo",
+  "source": "manual-test",
   "alerts": [
     {
       "status": "firing",
       "startsAt": "2026-07-07T10:30:00Z",
       "labels": {
-        "alertname": "ManualWeek7Incident",
+        "alertname": "ManualIncidentTest",
         "service_name": "payment-service",
         "severity": "critical"
       },
       "annotations": {
-        "rawLog": "2026-07-07T10:30:00 ERROR service=payment-service traceId=manual-week7-trace status=503 failure=PAYMENT_GATEWAY_DOWN java.lang.IllegalStateException: Payment gateway timeout during checkout",
-        "traceId": "manual-week7-trace",
+        "rawLog": "2026-07-07T10:30:00 ERROR service=payment-service traceId=manual-payment-trace status=503 failure=PAYMENT_GATEWAY_DOWN java.lang.IllegalStateException: Payment gateway timeout during checkout",
+        "traceId": "manual-payment-trace",
         "statusCode": "503",
         "failureType": "PAYMENT_GATEWAY_DOWN",
         "description": "Payment gateway timeout during checkout"

@@ -1,17 +1,18 @@
-# Runtime data
 data/
-data_backup/
-
-# Maven
+.docker-tmp/
+.m2-ci/
+.m2-ci-verify/
 **/target/
-
-# Logs
 *.log
-*.pid
 
-# IDE
+.project
+.classpath
+.factorypath
+.settings/
+HELP.md
 .idea/
 .vscode/
+*.iml
 
-# Environment
-.env
+__pycache__/
+*.pyc

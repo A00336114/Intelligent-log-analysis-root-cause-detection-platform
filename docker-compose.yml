@@ -11,6 +11,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d platform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -26,8 +33,11 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - postgres
-      - logstash
+      postgres:
+        condition: service_healthy
+      logstash:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -43,9 +53,13 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - postgres
-      - user-service
-      - logstash
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      logstash:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -61,8 +75,11 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      - postgres
-      - logstash
+      postgres:
+        condition: service_healthy
+      logstash:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -79,9 +96,13 @@ services:
     ports:
       - "8086:8086"
     depends_on:
-      - postgres
-      - log-parser-service
-      - logstash
+      postgres:
+        condition: service_healthy
+      log-parser-service:
+        condition: service_started
+      logstash:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -94,7 +115,9 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - platform_network
 
@@ -248,6 +271,25 @@ services:
       - splunk
     networks:
       - platform_network
+
+  ai-engine:
+    build:
+      context: ./ai-engine
+    container_name: ai-engine
+    environment:
+      LOG_PARSER_BASE_URL: http://log-parser-service:5000
+      DATABASE_URL: postgresql+psycopg://admin:password@postgres:5432/platform_db
+    ports:
+      - "8090:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      log-parser-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - platform_network
+
 
 networks:
   platform_network:

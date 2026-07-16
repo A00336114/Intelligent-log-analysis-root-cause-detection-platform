@@ -1,5 +1,6 @@
 package com.banking.incidentservice.service;
 
+import com.banking.incidentservice.dto.IncidentUpdateRequest;
 import com.banking.incidentservice.dto.IncidentWorkflowResponse;
 import com.banking.incidentservice.dto.ParsedLogRequest;
 import com.banking.incidentservice.dto.ParsedLogResponse;
@@ -13,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class IncidentWorkflowService {
 
     private static final DateTimeFormatter SYNTHETIC_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Set<String> MANUAL_STATUSES = Set.of(
+            "OPEN",
+            "ACKNOWLEDGED",
+            "RESOLVED",
+            "FAILED"
+    );
 
     private final IncidentRepository incidentRepository;
     private final LogParserClient logParserClient;
@@ -97,7 +105,40 @@ public class IncidentWorkflowService {
     public IncidentWorkflowResponse getIncident(Long id) {
         Incident incident = incidentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Incident not found"));
-        return IncidentWorkflowResponse.from(incident, null);
+        return IncidentWorkflowResponse.from(incident, logParserClient.findByIncidentId(id));
+    }
+
+    public IncidentWorkflowResponse updateIncident(Long id, IncidentUpdateRequest request) {
+        Incident incident = incidentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Incident not found"));
+
+        if (request != null && request.notes() != null) {
+            incident.setNotes(hasText(request.notes()) ? request.notes().trim() : null);
+        }
+
+        if (request != null && hasText(request.status())) {
+            incident.setStatus(normalizeManualStatus(request.status()));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (Boolean.TRUE.equals(request == null ? null : request.resolved())) {
+            if (!isResolvedStatus(incident.getStatus())) {
+                incident.setStatus("RESOLVED");
+            }
+            incident.setResolvedAt(now);
+        } else if (isResolvedStatus(incident.getStatus())) {
+            if (incident.getResolvedAt() == null) {
+                incident.setResolvedAt(now);
+            }
+        } else if (request != null && (request.resolved() != null || hasText(request.status()))) {
+            incident.setResolvedAt(null);
+        }
+
+        incident.setUpdatedAt(now);
+        incident = incidentRepository.save(incident);
+
+        return IncidentWorkflowResponse.from(incident, logParserClient.findByIncidentId(id));
     }
 
     private NormalizedAlert normalize(JsonNode payload) {
@@ -397,6 +438,22 @@ public class IncidentWorkflowService {
             case "FAILED" -> "FAILED";
             default -> "OPEN";
         };
+    }
+
+    private String normalizeManualStatus(String status) {
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        if (!MANUAL_STATUSES.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported incident status: " + status);
+        }
+        return normalized;
+    }
+
+    private boolean isResolvedStatus(String status) {
+        if (!hasText(status)) {
+            return false;
+        }
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        return "RESOLVED".equals(normalized) || "CLOSED".equals(normalized);
     }
 
     private String generateIncidentNumber(NormalizedAlert alert) {

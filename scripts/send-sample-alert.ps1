@@ -1,4 +1,4 @@
-$body = Get-Content -Raw "$PSScriptRoot\week7-demo-alert.json"
+$body = Get-Content -Raw "$PSScriptRoot\sample-alert.json"
 
 Invoke-RestMethod `
   -Method Post `
