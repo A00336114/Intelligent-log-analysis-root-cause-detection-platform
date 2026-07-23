@@ -1,48 +1,61 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from api.FastAPI.anomaly_routes import router as anomaly_router, detector
 
-# Configure logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from api.FastAPI.anomaly_routes import router as anomaly_router, detector
+from data_processing.anomaly_repository import ensure_anomaly_tables
+
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("ai_engine")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Try to load existing model/encoders or train on startup if data is available
-    logger.info("Initializing AI Engine lifespan...")
+    logger.info("Initializing AI engine")
     try:
+        ensure_anomaly_tables()
         loaded = detector.model.load()
         if loaded:
-            logger.info("Successfully loaded existing Isolation Forest model from disk.")
+            logger.info("Loaded existing Isolation Forest model")
         else:
-            logger.info("No pre-existing Isolation Forest model found. Attempting initial training...")
-            train_res = detector.train_from_scratch()
-            logger.info(f"Initial training status: {train_res}")
-    except Exception as e:
-        logger.error(f"Error during AI Engine startup training initialization: {e}")
-    
+            logger.info("No saved model found; training from parsed logs if data is available")
+            logger.info("Initial training result: %s", detector.train_from_scratch())
+    except Exception as error:
+        logger.error("AI engine startup initialization failed: %s", error)
+
     yield
-    
-    logger.info("Shutting down AI Engine lifespan...")
+
+    logger.info("Shutting down AI engine")
+
 
 app = FastAPI(
-    title="Intelligent Log Analysis Platform — AI Engine",
-    description="FastAPI service for Anomaly Detection using Isolation Forest",
+    title="Intelligent Log Analysis Platform - AI Engine",
+    description="FastAPI service for anomaly detection using Isolation Forest",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# Register routes
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(anomaly_router)
+
 
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
         "model_loaded": detector.model.is_trained,
-        "encoders_loaded": bool(detector.engineer.encoders)
+        "encoders_loaded": bool(detector.engineer.encoders),
     }

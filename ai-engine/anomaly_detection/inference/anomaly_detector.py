@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import pandas as pd
 from data_processing.log_fetcher import LogFetcher
 from data_processing.feature_engineering import FeatureEngineer
+from data_processing.anomaly_repository import AnomalyRepository
 from anomaly_detection.models.isolation_forest_model import IsolationForestModel
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ class AnomalyDetector:
         self.fetcher = LogFetcher()
         self.engineer = FeatureEngineer(models_dir=model_dir)
         self.model = IsolationForestModel(model_dir=model_dir)
+        self.repository = AnomalyRepository()
         
         # Try to load existing model and encoders on initialization
         self.model.load()
@@ -29,10 +31,14 @@ class AnomalyDetector:
         # Fit and build feature matrix
         X = self.engineer.build_feature_matrix(df, fit=True)
         self.model.train(X)
+
+        incident_ids = [int(value) for value in df["incidentId"].dropna().tolist()] if "incidentId" in df.columns else []
+        detected = self.detect_anomalies_batch(incident_ids) if incident_ids else []
         
         return {
             "status": "success",
             "samples_trained": df.shape[0],
+            "results_saved": len(detected),
             "is_trained": self.model.is_trained
         }
 
@@ -50,12 +56,17 @@ class AnomalyDetector:
         # Engineer features
         x = self.engineer.extract_features_single(record)
         is_anomaly, score, reason = self.model.predict_single(x)
+        saved = self.repository.save_result(incident_id, is_anomaly, score, reason)
 
         return {
             "incident_id": incident_id,
             "is_anomaly": is_anomaly,
             "anomaly_score": score,
-            "reason": reason
+            "reason": reason,
+            "id": saved["id"],
+            "model_version": saved["model_version"],
+            "created_at": saved["created_at"],
+            "updated_at": saved["updated_at"],
         }
 
     def detect_anomalies_batch(self, incident_ids: List[int]) -> List[Dict[str, Any]]:
@@ -91,19 +102,32 @@ class AnomalyDetector:
             batch_preds = self.model.predict_batch(X)
             
             for inc_id, (is_anomaly, score, reason) in zip(ids_to_predict, batch_preds):
+                saved = self.repository.save_result(inc_id, is_anomaly, score, reason)
                 results.append({
                     "incident_id": inc_id,
                     "is_anomaly": is_anomaly,
                     "anomaly_score": score,
-                    "reason": reason
+                    "reason": reason,
+                    "id": saved["id"],
+                    "model_version": saved["model_version"],
+                    "created_at": saved["created_at"],
+                    "updated_at": saved["updated_at"],
                 })
 
         return results
 
+    def get_results(self) -> List[Dict[str, Any]]:
+        return self.repository.fetch_results()
+
+    def get_result_by_incident_id(self, incident_id: int) -> Optional[Dict[str, Any]]:
+        return self.repository.fetch_result_by_incident_id(incident_id)
+
     def get_status(self) -> Dict[str, Any]:
         """Returns training status of the model."""
+        result_count = len(self.repository.fetch_results())
         return {
             "model_trained": self.model.is_trained,
             "encoders_loaded": bool(self.engineer.encoders),
-            "contamination": self.model.contamination
+            "contamination": self.model.contamination,
+            "results_saved": result_count
         }

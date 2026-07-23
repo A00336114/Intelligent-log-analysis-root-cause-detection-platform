@@ -37,9 +37,9 @@ class IsolationForestModel:
         pred = self.clf.predict(X_test)[0]
         is_anomaly = bool(pred == -1)
 
-        score_sample = self.clf.score_samples(X_test)[0]
-        anomaly_score = float(1.0 - (score_sample + 0.5) / 1.0)
-        anomaly_score = max(0.0, min(1.0, anomaly_score))
+        # decision_function is positive for normal points and negative for outliers.
+        decision_score = float(self.clf.decision_function(X_test)[0])
+        anomaly_score = max(0.0, min(1.0, 0.5 - decision_score))
 
         reason = "Normal behaviour detected"
         if is_anomaly:
@@ -63,13 +63,12 @@ class IsolationForestModel:
                 return [(False, 0.0, "Model not trained")] * X.shape[0]
 
         preds = self.clf.predict(X)
-        scores = self.clf.score_samples(X)
+        scores = self.clf.decision_function(X)
         
         results = []
         for i in range(X.shape[0]):
             is_anomaly = bool(preds[i] == -1)
-            anomaly_score = float(1.0 - (scores[i] + 0.5) / 1.0)
-            anomaly_score = max(0.0, min(1.0, anomaly_score))
+            anomaly_score = max(0.0, min(1.0, 0.5 - float(scores[i])))
             
             reason = "Normal behaviour detected"
             if is_anomaly:

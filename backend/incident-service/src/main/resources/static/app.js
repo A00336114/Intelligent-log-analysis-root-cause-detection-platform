@@ -1,9 +1,12 @@
 const state = {
   incidents: [],
+  anomalies: [],
   activeIncidentId: null,
   search: "",
   filter: "ALL",
 };
+
+const AI_ENGINE_BASE_URL = "http://localhost:8090";
 
 const MANUAL_STATUSES = [
   "OPEN",
@@ -18,6 +21,7 @@ const elements = {
   summaryOpen: document.querySelector("[data-summary-open]"),
   summaryParsed: document.querySelector("[data-summary-parsed]"),
   summaryFailed: document.querySelector("[data-summary-failed]"),
+  summaryAnomalies: document.querySelector("[data-summary-anomalies]"),
   summaryCritical: document.querySelector("[data-summary-critical]"),
   summaryNew: document.querySelector("[data-summary-new]"),
   lastUpdated: document.querySelector("[data-last-updated]"),
@@ -32,6 +36,7 @@ const elements = {
   detailParserMessage: document.querySelector("[data-detail-parser-message]"),
   detailTimeline: document.querySelector("[data-detail-timeline]"),
   detailParsed: document.querySelector("[data-detail-parsed]"),
+  detailAnomaly: document.querySelector("[data-detail-anomaly]"),
   detailRawLog: document.querySelector("[data-detail-raw-log]"),
   detailTrace: document.querySelector("[data-detail-trace]"),
   detailOverlay: document.querySelector("[data-detail-overlay]"),
@@ -137,6 +142,32 @@ function getStatusTone(status) {
   return "neutral";
 }
 
+function getAnomalyTone(anomaly) {
+  if (!anomaly) {
+    return "neutral";
+  }
+  return anomaly.isAnomaly || anomaly.is_anomaly ? "critical" : "healthy";
+}
+
+function getAnomalyLabel(anomaly) {
+  if (!anomaly) {
+    return "Not checked";
+  }
+  return anomaly.isAnomaly || anomaly.is_anomaly ? "Anomaly" : "Normal";
+}
+
+function getAnomalyScore(anomaly) {
+  if (!anomaly) {
+    return null;
+  }
+  const score = anomaly.anomalyScore ?? anomaly.anomaly_score;
+  return typeof score === "number" ? score : Number(score);
+}
+
+function getAnomalyForIncident(incidentId) {
+  return state.anomalies.find((item) => Number(item.incidentId ?? item.incident_id) === Number(incidentId));
+}
+
 function setUpdateMessage(message, tone = "info") {
   elements.updateMessage.textContent = message || "";
   if (message) {
@@ -157,6 +188,7 @@ function updateSummary(incidents) {
   const openCount = incidents.filter((incident) => normalizeText(incident.status) === "OPEN").length;
   const parsedCount = incidents.filter((incident) => normalizeText(incident.parserStatus) === "COMPLETED").length;
   const failedCount = incidents.filter((incident) => normalizeText(incident.parserStatus) === "FAILED").length;
+  const anomalyCount = state.anomalies.filter((anomaly) => anomaly.isAnomaly || anomaly.is_anomaly).length;
   const criticalCount = incidents.filter((incident) => getSeverityTone(incident.severity) === "critical").length;
   const today = new Date().toDateString();
   const newTodayCount = incidents.filter((incident) => {
@@ -168,6 +200,7 @@ function updateSummary(incidents) {
   elements.summaryOpen.textContent = openCount;
   elements.summaryParsed.textContent = parsedCount;
   elements.summaryFailed.textContent = failedCount;
+  elements.summaryAnomalies.textContent = anomalyCount;
   elements.summaryCritical.textContent = criticalCount;
   elements.summaryNew.textContent = newTodayCount;
 }
@@ -227,6 +260,8 @@ function renderIncidentList() {
     ? visibleIncidents
         .map((incident) => {
           const isActive = incident.id === state.activeIncidentId;
+          const anomaly = getAnomalyForIncident(incident.id);
+          const anomalyScore = getAnomalyScore(anomaly);
           return `
             <tr class="${isActive ? "is-active" : ""}" data-incident-id="${incident.id}" tabindex="0">
               <td>
@@ -240,6 +275,10 @@ function renderIncidentList() {
               <td><span class="pill pill--${getStatusTone(incident.status)}">${escapeHtml(incident.status || "OPEN")}</span></td>
               <td><span class="pill pill--${getSeverityTone(incident.severity)}">${escapeHtml(incident.severity || "unknown")}</span></td>
               <td><span class="pill pill--${getParserTone(incident.parserStatus)}">${escapeHtml(incident.parserStatus || "PENDING")}</span></td>
+              <td>
+                <span class="pill pill--${getAnomalyTone(anomaly)}">${escapeHtml(getAnomalyLabel(anomaly))}</span>
+                ${anomalyScore == null || Number.isNaN(anomalyScore) ? "" : `<span>${escapeHtml(anomalyScore.toFixed(2))}</span>`}
+              </td>
               <td>${escapeHtml(incident.traceId || "Not available")}</td>
             </tr>
           `;
@@ -247,7 +286,7 @@ function renderIncidentList() {
         .join("")
     : `
         <tr>
-          <td colspan="7">
+          <td colspan="8">
             <div class="empty-state">
               <h3>No incidents match this view</h3>
               <p>Try changing the parser filter or clearing the search field.</p>
@@ -298,6 +337,8 @@ function renderDetail(incident) {
   elements.updateStatus.value = MANUAL_STATUSES.includes(incident.status) ? incident.status : "OPEN";
   elements.updateNotes.value = incident.notes || "";
   setUpdateMessage("");
+  const anomaly = getAnomalyForIncident(incident.id);
+  const anomalyScore = getAnomalyScore(anomaly);
 
   elements.detailTimeline.innerHTML = [
     ["Created", formatDate(incident.createdAt)],
@@ -339,6 +380,30 @@ function renderDetail(incident) {
       </div>
     `;
   }
+
+  if (anomaly) {
+    elements.detailAnomaly.innerHTML = [
+      ["Status", getAnomalyLabel(anomaly)],
+      ["Score", anomalyScore == null || Number.isNaN(anomalyScore) ? "Not available" : anomalyScore.toFixed(3)],
+      ["Reason", anomaly.reason],
+      ["Model", anomaly.modelVersion || anomaly.model_version || "Isolation Forest"],
+      ["Updated", formatDate(anomaly.updatedAt || anomaly.updated_at)],
+    ]
+      .map(([label, value]) => `
+        <div class="parsed-grid__item">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value ?? "Not available")}</strong>
+        </div>
+      `)
+      .join("");
+  } else {
+    elements.detailAnomaly.innerHTML = `
+      <div class="empty-inline">
+        <strong>No anomaly result saved for this incident yet.</strong>
+        <span>Run AI engine training or detection, then refresh the dashboard.</span>
+      </div>
+    `;
+  }
 }
 
 function showDetailError(error) {
@@ -356,7 +421,12 @@ async function loadIncidents() {
   elements.refreshButton.textContent = "Refreshing...";
 
   try {
-    state.incidents = await requestJson("/api/incidents");
+    const [incidents, anomalies] = await Promise.all([
+      requestJson("/api/incidents"),
+      loadAnomalyResults(),
+    ]);
+    state.incidents = incidents;
+    state.anomalies = anomalies;
     elements.lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
     updateSummary(state.incidents);
     renderIncidentList();
@@ -374,6 +444,15 @@ async function loadIncidents() {
   } finally {
     elements.refreshButton.disabled = false;
     elements.refreshButton.textContent = "Refresh";
+  }
+}
+
+async function loadAnomalyResults() {
+  try {
+    return await requestJson(`${AI_ENGINE_BASE_URL}/anomalies`);
+  } catch (error) {
+    console.warn("Unable to load anomaly results", error);
+    return [];
   }
 }
 

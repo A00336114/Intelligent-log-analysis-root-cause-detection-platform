@@ -3,6 +3,7 @@ import os
 import requests
 import pandas as pd
 from typing import List, Dict, Any, Optional
+from data_processing.anomaly_repository import AnomalyRepository
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +12,18 @@ class LogFetcher:
         self.parser_base_url = parser_base_url or os.getenv(
             "LOG_PARSER_BASE_URL", "http://log-parser-service:5000"
         )
+        self.repository = AnomalyRepository()
 
     def fetch_all_parsed_logs(self) -> List[Dict[str, Any]]:
-        """Fetches all parsed logs from the log-parser-service."""
+        """Fetches parsed logs from PostgreSQL, falling back to the parser API."""
+        try:
+            records = self.repository.fetch_all_parsed_logs()
+            if records:
+                logger.info("Fetched %s parsed logs from PostgreSQL", len(records))
+                return records
+        except Exception as error:
+            logger.warning("Could not fetch parsed logs from PostgreSQL: %s", error)
+
         url = f"{self.parser_base_url}/parsed-logs"
         try:
             logger.info(f"Fetching parsed logs from {url}")
@@ -25,7 +35,15 @@ class LogFetcher:
             return []
 
     def fetch_parsed_log_by_incident_id(self, incident_id: int) -> Optional[Dict[str, Any]]:
-        """Fetches a specific parsed log by its incident ID."""
+        """Fetches a specific parsed log by incident ID."""
+        try:
+            record = self.repository.fetch_parsed_log_by_incident_id(incident_id)
+            if record:
+                logger.info("Fetched parsed log for incident %s from PostgreSQL", incident_id)
+                return record
+        except Exception as error:
+            logger.warning("Could not fetch parsed log %s from PostgreSQL: %s", incident_id, error)
+
         url = f"{self.parser_base_url}/parsed-logs/{incident_id}"
         try:
             logger.info(f"Fetching parsed log for incident {incident_id} from {url}")

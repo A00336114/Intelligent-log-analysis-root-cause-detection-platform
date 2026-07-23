@@ -43,6 +43,10 @@
         <span>Parser failed</span>
         <strong data-summary-failed>0</strong>
       </article>
+      <article class="summary-card">
+        <span>Anomalies</span>
+        <strong data-summary-anomalies>0</strong>
+      </article>
     </section>
 
     <section class="workspace">
@@ -79,6 +83,7 @@
                 <th>State</th>
                 <th>Priority</th>
                 <th>Parser</th>
+                <th>Anomaly</th>
                 <th>Trace ID</th>
               </tr>
             </thead>
@@ -139,6 +144,11 @@
           <article class="detail-section">
             <h3>Parsed log</h3>
             <div class="parsed-grid" data-detail-parsed></div>
+          </article>
+
+          <article class="detail-section">
+            <h3>Anomaly detection</h3>
+            <div class="parsed-grid" data-detail-anomaly></div>
           </article>
 
           <article class="detail-section">

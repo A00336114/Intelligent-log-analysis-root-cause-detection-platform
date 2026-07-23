@@ -7,3 +7,5 @@ numpy==1.26.4
 scikit-learn==1.4.1.post1
 spacy==3.7.4
 pydantic==2.6.4
+SQLAlchemy==2.0.30
+psycopg[binary]==3.1.18
