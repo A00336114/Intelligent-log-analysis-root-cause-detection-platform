@@ -1,10 +1,14 @@
 param(
     [string]$GrafanaBaseUrl = "http://localhost:3000",
     [string]$Username = "admin",
-    [string]$Password = "admin123",
+    [string]$Password = $env:GRAFANA_ADMIN_PASSWORD,
     [string]$ContactPointUid = "ffqxr4x7sxkw0f",
     [string]$IncidentWebhookUrl = "http://incident-service:8086/api/incidents/alerts"
 )
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw "Set GRAFANA_ADMIN_PASSWORD before running this script, or pass -Password explicitly."
+}
 
 $pair = "$Username`:$Password"
 $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))

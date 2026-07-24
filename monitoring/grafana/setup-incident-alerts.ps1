@@ -1,9 +1,13 @@
 param(
     [string]$GrafanaUrl = "http://localhost:3000",
     [string]$Username = "admin",
-    [string]$Password = "admin123",
-    [string]$WebhookUrl = "http://incident-service:8090/api/incidents/webhook"
+    [string]$Password = $env:GRAFANA_ADMIN_PASSWORD,
+    [string]$WebhookUrl = "http://incident-service:8086/api/incidents/alerts"
 )
+
+if ([string]::IsNullOrWhiteSpace($Password)) {
+    throw "Set GRAFANA_ADMIN_PASSWORD before running this script, or pass -Password explicitly."
+}
 
 $authBytes = [Text.Encoding]::ASCII.GetBytes("$Username`:$Password")
 $headers = @{

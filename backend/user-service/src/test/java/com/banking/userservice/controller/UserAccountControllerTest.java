@@ -21,9 +21,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class UserAccountControllerTest {
+
+    private static final PasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     @Mock
     private UserAccountRepository repository;
@@ -35,6 +39,7 @@ class UserAccountControllerTest {
     void createAccountAssignsDefaultsAndPersistsAccount() {
         UserAccount request = new UserAccount();
         request.setUsername("alice");
+        request.setPassword("secret");
         when(repository.save(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ResponseEntity<?> response = controller.createAccount(request);
@@ -44,6 +49,8 @@ class UserAccountControllerTest {
         assertThat(savedAccount).isNotNull();
         assertThat(savedAccount.getAccountNumber()).startsWith("ACC");
         assertThat(savedAccount.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(savedAccount.getPassword()).isNotEqualTo("secret");
+        assertThat(PASSWORD_ENCODER.matches("secret", savedAccount.getPassword())).isTrue();
         assertThat(savedAccount.getStatus()).isEqualTo(AccountStatus.ACTIVE);
         verify(repository).save(request);
     }
@@ -177,7 +184,7 @@ class UserAccountControllerTest {
     ) {
         UserAccount account = new UserAccount();
         account.setUsername(username);
-        account.setPassword(password);
+        account.setPassword(PASSWORD_ENCODER.encode(password));
         account.setStatus(status);
         account.setBalance(new BigDecimal(balance));
         return account;

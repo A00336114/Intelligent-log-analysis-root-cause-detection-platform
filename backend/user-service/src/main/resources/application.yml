@@ -4,13 +4,13 @@ spring:
   application:
     name: user-service
   datasource:
-    url: jdbc:postgresql://postgres:5432/platform_db
-    username: admin
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/platform_db}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:admin}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
 management:
   endpoints:
     web:

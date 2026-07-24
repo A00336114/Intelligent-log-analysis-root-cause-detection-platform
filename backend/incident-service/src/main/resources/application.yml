@@ -7,11 +7,11 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/platform_db}
     username: ${SPRING_DATASOURCE_USERNAME:admin}
-    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
 
 log-parser:
   base-url: ${LOG_PARSER_BASE_URL:http://log-parser-service:5000}

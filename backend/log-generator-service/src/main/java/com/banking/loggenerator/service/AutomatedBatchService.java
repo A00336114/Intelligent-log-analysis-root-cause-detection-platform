@@ -19,7 +19,6 @@ import org.springframework.web.client.RestTemplate;
 public class AutomatedBatchService {
 
     private static final Logger log = LoggerFactory.getLogger(AutomatedBatchService.class);
-    private static final String PASSWORD = "1234";
 
     private final RestTemplate restTemplate;
 
@@ -40,6 +39,9 @@ public class AutomatedBatchService {
 
     @Value("${services.payment.base-url:http://payment-service:8083/api/payments}")
     private String paymentServiceUrl;
+
+    @Value("${demo.user.password:${DEMO_USER_PASSWORD:}}")
+    private String demoUserPassword;
 
     @Scheduled(
             initialDelayString = "${batch.schedule.initial-delay-ms:60000}",
@@ -83,7 +85,7 @@ public class AutomatedBatchService {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("fullName", "Auto " + type + " User " + runId);
         request.put("username", username);
-        request.put("password", PASSWORD);
+        request.put("password", demoUserPassword);
         request.put("email", username + "@securebank.com");
         request.put("balance", balance);
 
@@ -106,7 +108,7 @@ public class AutomatedBatchService {
     private void login(String username) {
         Map<String, String> request = Map.of(
                 "username", username,
-                "password", PASSWORD
+                "password", demoUserPassword
         );
 
         log.info("Login started username={}", username);
@@ -118,7 +120,7 @@ public class AutomatedBatchService {
         try {
             Map<String, String> request = Map.of(
                     "username", username,
-                    "password", "wrong-password"
+                    "password", demoUserPassword + "-invalid"
             );
 
             log.warn("Invalid login simulation username={}", username);

@@ -4,6 +4,7 @@ data/
 .m2-ci-verify/
 **/target/
 *.log
+.env
 
 .project
 .classpath

@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,6 +14,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("ai_engine")
+
+
+def configured_origins() -> list[str]:
+    origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8086")
+    return [origin.strip() for origin in origins.split(",") if origin.strip()]
 
 
 @asynccontextmanager
@@ -43,7 +49,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=configured_origins(),
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

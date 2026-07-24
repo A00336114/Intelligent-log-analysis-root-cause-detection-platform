@@ -6,10 +6,10 @@ datasources:
     type: postgres
     access: proxy
     url: postgres:5432
-    user: admin
+    user: ${POSTGRES_USER}
     secureJsonData:
-      password: password
+      password: ${POSTGRES_PASSWORD}
     jsonData:
-      database: platform_db
+      database: ${POSTGRES_DB}
       sslmode: disable
       encrypt: disable

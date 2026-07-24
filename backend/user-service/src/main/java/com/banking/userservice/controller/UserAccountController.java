@@ -5,6 +5,8 @@ import com.banking.userservice.model.UserAccount;
 import com.banking.userservice.repository.UserAccountRepository;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -15,6 +17,8 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 public class UserAccountController {
 
+    private static final PasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
     private final UserAccountRepository repository;
 
     public UserAccountController(UserAccountRepository repository) {
@@ -24,6 +28,10 @@ public class UserAccountController {
     @PostMapping("/create")
     public ResponseEntity<?> createAccount(@RequestBody UserAccount account) {
 
+        if (account.getPassword() == null || account.getPassword().isBlank()) {
+            return ResponseEntity.badRequest().body("Password is required");
+        }
+
         account.setAccountNumber("ACC" + UUID.randomUUID().toString()
                 .substring(0, 8)
                 .toUpperCase());
@@ -32,6 +40,7 @@ public class UserAccountController {
             account.setBalance(BigDecimal.ZERO);
         }
 
+        account.setPassword(PASSWORD_ENCODER.encode(account.getPassword()));
         account.setStatus(AccountStatus.ACTIVE);
 
         return ResponseEntity.ok(repository.save(account));
@@ -53,10 +62,15 @@ public class UserAccountController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
 
+        String suppliedPassword = request.get("password");
+        if (suppliedPassword == null || suppliedPassword.isBlank()) {
+            return ResponseEntity.badRequest().body("Password is required");
+        }
+
         UserAccount account = repository.findByUsername(request.get("username"))
                 .orElseThrow(() -> new RuntimeException("Invalid username"));
 
-        if (!account.getPassword().equals(request.get("password"))) {
+        if (!PASSWORD_ENCODER.matches(suppliedPassword, account.getPassword())) {
             return ResponseEntity.badRequest().body("Invalid password");
         }
 

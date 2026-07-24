@@ -18,10 +18,20 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://admin:password@postgres:5432/platform_db",
-)
+def build_database_url() -> str:
+    configured_url = os.getenv("DATABASE_URL")
+    if configured_url:
+        return configured_url
+
+    user = os.getenv("POSTGRES_USER", "admin")
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    database = os.getenv("POSTGRES_DB", "platform_db")
+    host = os.getenv("POSTGRES_HOST", "postgres")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+
+
+DATABASE_URL = build_database_url()
 
 engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
