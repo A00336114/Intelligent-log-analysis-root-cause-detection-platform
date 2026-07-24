@@ -5,14 +5,18 @@ from api.FastAPI.schemas import (
     AnomalyDetectRequest, 
     AnomalyDetectBatchRequest, 
     AnomalyResultResponse, 
-    AnomalyStatusResponse
+    AnomalyStatusResponse,
+    RecommendationResponse,
+    SimilarIncidentResponse,
 )
 from anomaly_detection.inference.anomaly_detector import AnomalyDetector
+from root_cause_recommendation.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["anomaly"])
 detector = AnomalyDetector()
+recommendation_service = RecommendationService()
 
 @router.post("/detect-anomaly", response_model=AnomalyResultResponse)
 @router.post("/api/anomaly/detect", response_model=AnomalyResultResponse)
@@ -67,3 +71,36 @@ def get_anomaly_result(incident_id: int):
 @router.get("/api/anomaly/status", response_model=AnomalyStatusResponse)
 def get_model_status():
     return detector.get_status()
+
+
+@router.get("/similar-incidents/{incident_id}", response_model=List[SimilarIncidentResponse], tags=["recommendations"])
+@router.get("/api/recommendations/similar/{incident_id}", response_model=List[SimilarIncidentResponse], tags=["recommendations"])
+def find_similar_incidents(incident_id: int):
+    return recommendation_service.find_similar_incidents(incident_id)
+
+
+@router.post("/recommendations/{incident_id}", response_model=RecommendationResponse, tags=["recommendations"])
+@router.post("/api/recommendations/generate/{incident_id}", response_model=RecommendationResponse, tags=["recommendations"])
+def generate_recommendation(incident_id: int):
+    try:
+        return recommendation_service.generate_recommendation(incident_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except Exception as error:
+        logger.error("Recommendation generation failed for incident %s: %s", incident_id, error)
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@router.get("/recommendations", response_model=List[RecommendationResponse], tags=["recommendations"])
+@router.get("/api/recommendations", response_model=List[RecommendationResponse], tags=["recommendations"])
+def get_recommendations():
+    return recommendation_service.get_recommendations()
+
+
+@router.get("/recommendations/{incident_id}", response_model=RecommendationResponse, tags=["recommendations"])
+@router.get("/api/recommendations/{incident_id}", response_model=RecommendationResponse, tags=["recommendations"])
+def get_recommendation(incident_id: int):
+    recommendation = recommendation_service.get_recommendation(incident_id)
+    if recommendation is None:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    return recommendation

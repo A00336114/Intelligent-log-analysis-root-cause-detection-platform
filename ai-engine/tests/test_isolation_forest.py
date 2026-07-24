@@ -10,7 +10,7 @@ from anomaly_detection.models.isolation_forest_model import IsolationForestModel
 def test_isolation_forest_train_and_predict():
     model = IsolationForestModel(contamination=0.1, model_dir="test_models")
     
-    # Generate mock training dataset (mostly normal, some outliers)
+    # Build a compact training dataset with mostly normal records and a few outliers.
     # Feature shape: 6
     np.random.seed(42)
     normal_data = np.random.normal(loc=10.0, scale=1.0, size=(50, 6))

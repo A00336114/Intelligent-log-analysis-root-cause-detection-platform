@@ -16,6 +16,9 @@ spring:
 log-parser:
   base-url: ${LOG_PARSER_BASE_URL:http://log-parser-service:5000}
 
+ai-engine:
+  base-url: ${AI_ENGINE_BASE_URL:http://ai-engine:5000}
+
 management:
   endpoints:
     web:

@@ -16,9 +16,8 @@ class IsolationForestModel:
         self.is_trained = False
 
     def train(self, X: np.ndarray) -> None:
-        """Trains the Isolation Forest model on the provided feature matrix X."""
         if X.shape[0] < 5:
-            logger.warning(f"Very small dataset for training: {X.shape[0]} rows. Using dummy fit.")
+            logger.warning(f"Very small dataset for training: {X.shape[0]} rows. Using conservative fit settings.")
             self.clf = IsolationForest(contamination=0.01, random_state=42)
         
         logger.info(f"Training Isolation Forest model on {X.shape[0]} samples with shape {X.shape[1]}")
@@ -27,7 +26,6 @@ class IsolationForestModel:
         self.save()
 
     def predict_single(self, x: np.ndarray) -> Tuple[bool, float, str]:
-        """Predicts anomaly status, score, and reason for a single feature vector x."""
         if not self.is_trained:
             if not self.load():
                 logger.warning("Model not trained and could not load from disk. Returning default (not anomaly).")
@@ -37,11 +35,10 @@ class IsolationForestModel:
         pred = self.clf.predict(X_test)[0]
         is_anomaly = bool(pred == -1)
 
-        # decision_function is positive for normal points and negative for outliers.
         decision_score = float(self.clf.decision_function(X_test)[0])
         anomaly_score = max(0.0, min(1.0, 0.5 - decision_score))
 
-        reason = "Normal behaviour detected"
+        reason = "Log pattern is within the expected range"
         if is_anomaly:
             reasons = []
             if X_test[0, 1] == 1.0:
@@ -56,7 +53,6 @@ class IsolationForestModel:
         return is_anomaly, anomaly_score, reason
 
     def predict_batch(self, X: np.ndarray) -> List[Tuple[bool, float, str]]:
-        """Predicts anomaly status, scores, and reasons for a batch of feature vectors X."""
         if not self.is_trained:
             if not self.load():
                 logger.warning("Model not trained and could not load from disk. Returning defaults.")
@@ -70,7 +66,7 @@ class IsolationForestModel:
             is_anomaly = bool(preds[i] == -1)
             anomaly_score = max(0.0, min(1.0, 0.5 - float(scores[i])))
             
-            reason = "Normal behaviour detected"
+            reason = "Log pattern is within the expected range"
             if is_anomaly:
                 reasons = []
                 if X[i, 1] == 1.0:
@@ -86,7 +82,6 @@ class IsolationForestModel:
         return results
 
     def save(self) -> None:
-        """Saves model to disk."""
         os.makedirs(self.model_dir, exist_ok=True)
         try:
             with open(self.model_path, 'wb') as f:
@@ -96,7 +91,6 @@ class IsolationForestModel:
             logger.error(f"Error saving Isolation Forest model: {e}")
 
     def load(self) -> bool:
-        """Loads model from disk."""
         if os.path.exists(self.model_path):
             try:
                 with open(self.model_path, 'rb') as f:

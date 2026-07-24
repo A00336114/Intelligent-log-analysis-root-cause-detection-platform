@@ -33,10 +33,16 @@ public class IncidentWorkflowService {
 
     private final IncidentRepository incidentRepository;
     private final LogParserClient logParserClient;
+    private final AiEngineClient aiEngineClient;
 
-    public IncidentWorkflowService(IncidentRepository incidentRepository, LogParserClient logParserClient) {
+    public IncidentWorkflowService(
+            IncidentRepository incidentRepository,
+            LogParserClient logParserClient,
+            AiEngineClient aiEngineClient
+    ) {
         this.incidentRepository = incidentRepository;
         this.logParserClient = logParserClient;
+        this.aiEngineClient = aiEngineClient;
     }
 
     public IncidentWorkflowResponse createIncidentFromAlert(JsonNode payload) {
@@ -85,6 +91,7 @@ public class IncidentWorkflowService {
             }
 
             incident = incidentRepository.save(incident);
+            runAnomalyDetection(incident);
         } catch (Exception exception) {
             incident.setParserStatus(ParserStatus.FAILED);
             incident.setParserMessage("Log parser call failed: " + summarize(exception.getMessage()));
@@ -93,6 +100,18 @@ public class IncidentWorkflowService {
         }
 
         return IncidentWorkflowResponse.from(incident, parsedLog);
+    }
+
+    private void runAnomalyDetection(Incident incident) {
+        try {
+            aiEngineClient.detectAnomaly(incident.getId());
+        } catch (Exception exception) {
+            incident.setParserMessage(
+                    incident.getParserMessage() + "; anomaly detection pending: " + summarize(exception.getMessage())
+            );
+            incident.setUpdatedAt(LocalDateTime.now());
+            incidentRepository.save(incident);
+        }
     }
 
     public List<IncidentWorkflowResponse> getIncidents() {

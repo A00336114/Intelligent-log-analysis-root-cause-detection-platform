@@ -80,7 +80,7 @@ jobs:
         run: python -m py_compile log-parser-service/app.py
 
   validate-ai-engine:
-    name: Validate AI Engine
+    name: Validate Analysis Engine
     runs-on: ubuntu-latest
 
     steps:
@@ -94,10 +94,10 @@ jobs:
           cache: pip
           cache-dependency-path: ai-engine/requirements.txt
 
-      - name: Install AI engine dependencies
+      - name: Install analysis engine dependencies
         run: pip install -r ai-engine/requirements.txt pytest
 
-      - name: Compile AI engine source
+      - name: Compile analysis engine source
         run: |
           python -m py_compile \
             ai-engine/app.py \
@@ -105,9 +105,10 @@ jobs:
             ai-engine/api/FastAPI/schemas.py \
             ai-engine/anomaly_detection/inference/anomaly_detector.py \
             ai-engine/data_processing/log_fetcher.py \
-            ai-engine/data_processing/anomaly_repository.py
+            ai-engine/data_processing/anomaly_repository.py \
+            ai-engine/root_cause_recommendation/recommendation_service.py
 
-      - name: Run AI engine tests
+      - name: Run analysis engine tests
         run: pytest ai-engine/tests
 
   test-java:
@@ -250,7 +251,7 @@ jobs:
             ${{ env.DOCKERHUB_NAMESPACE }}/log-parser-service:latest
             ${{ env.DOCKERHUB_NAMESPACE }}/log-parser-service:${{ github.sha }}
 
-      - name: Build and push AI engine image
+      - name: Build and push analysis engine image
         uses: docker/build-push-action@v6
         with:
           context: ./ai-engine

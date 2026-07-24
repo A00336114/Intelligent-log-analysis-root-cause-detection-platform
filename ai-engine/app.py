@@ -17,7 +17,7 @@ logger = logging.getLogger("ai_engine")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing AI engine")
+    logger.info("Initializing analysis engine")
     try:
         ensure_anomaly_tables()
         loaded = detector.model.load()
@@ -27,16 +27,16 @@ async def lifespan(app: FastAPI):
             logger.info("No saved model found; training from parsed logs if data is available")
             logger.info("Initial training result: %s", detector.train_from_scratch())
     except Exception as error:
-        logger.error("AI engine startup initialization failed: %s", error)
+        logger.error("Analysis engine startup initialization failed: %s", error)
 
     yield
 
-    logger.info("Shutting down AI engine")
+    logger.info("Shutting down analysis engine")
 
 
 app = FastAPI(
-    title="Intelligent Log Analysis Platform - AI Engine",
-    description="FastAPI service for anomaly detection using Isolation Forest",
+    title="Intelligent Log Analysis Platform - Analysis Engine",
+    description="FastAPI service for log anomaly detection using Isolation Forest",
     version="1.0.0",
     lifespan=lifespan,
 )

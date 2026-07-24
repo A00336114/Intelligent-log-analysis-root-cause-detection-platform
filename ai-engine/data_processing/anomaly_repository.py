@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     func,
+    desc,
     select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -65,8 +66,58 @@ class AnomalyResultRecord(Base):
     )
 
 
+class IncidentRecord(Base):
+    __tablename__ = "incidents"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    alert_name: Mapped[str | None] = mapped_column(String(255))
+    title: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    incident_number: Mapped[str | None] = mapped_column(String(255))
+    service_name: Mapped[str | None] = mapped_column(String(255))
+    severity: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str | None] = mapped_column(String(255))
+    source: Mapped[str | None] = mapped_column(String(255))
+    raw_payload: Mapped[str | None] = mapped_column(Text)
+    raw_log: Mapped[str | None] = mapped_column(Text)
+    trace_id: Mapped[str | None] = mapped_column(String(255))
+    parser_status: Mapped[str | None] = mapped_column(String(255))
+    parser_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+    parsed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class RootCauseRecommendationRecord(Base):
+    __tablename__ = "root_cause_recommendations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    incident_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True, index=True)
+    similar_incident_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    similarity_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    recommended_root_cause: Mapped[str] = mapped_column(Text, nullable=False)
+    recommended_fix: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[str | None] = mapped_column(Text)
+    model_used: Mapped[str] = mapped_column(String(80), nullable=False, default="rules-and-similarity")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 def ensure_anomaly_tables() -> None:
-    Base.metadata.create_all(bind=engine, tables=[AnomalyResultRecord.__table__])
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            AnomalyResultRecord.__table__,
+            RootCauseRecommendationRecord.__table__,
+        ],
+    )
 
 
 def parsed_log_to_dict(record: ParsedLogRecord) -> dict[str, Any]:
@@ -94,6 +145,46 @@ def anomaly_to_dict(record: AnomalyResultRecord) -> dict[str, Any]:
         "anomaly_score": record.anomaly_score,
         "reason": record.reason,
         "model_version": record.model_version,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+        "updated_at": record.updated_at.isoformat() if record.updated_at else None,
+    }
+
+
+def incident_to_dict(record: IncidentRecord, parsed_log: ParsedLogRecord | None = None) -> dict[str, Any]:
+    parsed = parsed_log_to_dict(parsed_log) if parsed_log else None
+    return {
+        "id": record.id,
+        "incidentNumber": record.incident_number,
+        "alertName": record.alert_name,
+        "title": record.title,
+        "description": record.description,
+        "serviceName": record.service_name,
+        "severity": record.severity,
+        "status": record.status,
+        "source": record.source,
+        "rawLog": record.raw_log,
+        "traceId": record.trace_id,
+        "parserStatus": record.parser_status,
+        "parserMessage": record.parser_message,
+        "createdAt": record.created_at.isoformat() if record.created_at else None,
+        "parsedAt": record.parsed_at.isoformat() if record.parsed_at else None,
+        "updatedAt": record.updated_at.isoformat() if record.updated_at else None,
+        "resolvedAt": record.resolved_at.isoformat() if record.resolved_at else None,
+        "notes": record.notes,
+        "parsedLog": parsed,
+    }
+
+
+def recommendation_to_dict(record: RootCauseRecommendationRecord) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "incident_id": record.incident_id,
+        "similar_incident_id": record.similar_incident_id,
+        "similarity_score": record.similarity_score,
+        "recommended_root_cause": record.recommended_root_cause,
+        "recommended_fix": record.recommended_fix,
+        "evidence": record.evidence,
+        "model_used": record.model_used,
         "created_at": record.created_at.isoformat() if record.created_at else None,
         "updated_at": record.updated_at.isoformat() if record.updated_at else None,
     }
@@ -157,3 +248,81 @@ class AnomalyRepository:
                 select(AnomalyResultRecord).where(AnomalyResultRecord.incident_id == incident_id)
             ).scalar_one_or_none()
             return anomaly_to_dict(record) if record else None
+
+    def fetch_incident_with_parsed_log(self, incident_id: int) -> dict[str, Any] | None:
+        with SessionLocal() as session:
+            incident = session.execute(
+                select(IncidentRecord).where(IncidentRecord.id == incident_id)
+            ).scalar_one_or_none()
+            if incident is None:
+                return None
+
+            parsed_log = session.execute(
+                select(ParsedLogRecord).where(ParsedLogRecord.incident_id == incident_id)
+            ).scalar_one_or_none()
+            return incident_to_dict(incident, parsed_log)
+
+    def fetch_incidents_for_similarity(self, exclude_incident_id: int | None = None) -> list[dict[str, Any]]:
+        with SessionLocal() as session:
+            query = (
+                select(IncidentRecord, ParsedLogRecord)
+                .outerjoin(ParsedLogRecord, ParsedLogRecord.incident_id == IncidentRecord.id)
+                .order_by(desc(IncidentRecord.resolved_at), desc(IncidentRecord.updated_at), desc(IncidentRecord.id))
+            )
+            if exclude_incident_id is not None:
+                query = query.where(IncidentRecord.id != exclude_incident_id)
+
+            rows = session.execute(query).all()
+            return [incident_to_dict(incident, parsed_log) for incident, parsed_log in rows]
+
+    def save_recommendation(
+        self,
+        incident_id: int,
+        similar_incident_id: int | None,
+        similarity_score: float,
+        recommended_root_cause: str,
+        recommended_fix: str,
+        evidence: str,
+        model_used: str,
+    ) -> dict[str, Any]:
+        with SessionLocal() as session:
+            record = session.execute(
+                select(RootCauseRecommendationRecord).where(
+                    RootCauseRecommendationRecord.incident_id == incident_id
+                )
+            ).scalar_one_or_none()
+
+            if record is None:
+                record = RootCauseRecommendationRecord(incident_id=incident_id)
+                session.add(record)
+
+            record.similar_incident_id = similar_incident_id
+            record.similarity_score = similarity_score
+            record.recommended_root_cause = recommended_root_cause
+            record.recommended_fix = recommended_fix
+            record.evidence = evidence
+            record.model_used = model_used
+            record.updated_at = datetime.utcnow()
+
+            session.commit()
+            session.refresh(record)
+            return recommendation_to_dict(record)
+
+    def fetch_recommendation_by_incident_id(self, incident_id: int) -> dict[str, Any] | None:
+        with SessionLocal() as session:
+            record = session.execute(
+                select(RootCauseRecommendationRecord).where(
+                    RootCauseRecommendationRecord.incident_id == incident_id
+                )
+            ).scalar_one_or_none()
+            return recommendation_to_dict(record) if record else None
+
+    def fetch_recommendations(self) -> list[dict[str, Any]]:
+        with SessionLocal() as session:
+            records = session.execute(
+                select(RootCauseRecommendationRecord).order_by(
+                    RootCauseRecommendationRecord.updated_at.desc(),
+                    RootCauseRecommendationRecord.id.desc(),
+                )
+            ).scalars().all()
+            return [recommendation_to_dict(record) for record in records]

@@ -15,20 +15,17 @@ class AnomalyDetector:
         self.engineer = FeatureEngineer(models_dir=model_dir)
         self.model = IsolationForestModel(model_dir=model_dir)
         self.repository = AnomalyRepository()
-        
-        # Try to load existing model and encoders on initialization
+
         self.model.load()
         self.engineer.load_encoders()
 
     def train_from_scratch(self) -> Dict[str, Any]:
-        """Fetches all parsed logs, fits encoders, trains isolation forest, and saves both."""
         df = self.fetcher.fetch_as_dataframe()
         if df.empty:
             logger.warning("No parsed logs found to train from scratch.")
             return {"status": "failed", "reason": "no data"}
 
         logger.info(f"Loaded {df.shape[0]} logs for training.")
-        # Fit and build feature matrix
         X = self.engineer.build_feature_matrix(df, fit=True)
         self.model.train(X)
 
@@ -43,7 +40,6 @@ class AnomalyDetector:
         }
 
     def detect_anomaly(self, incident_id: int) -> Dict[str, Any]:
-        """Fetches log by incident_id, engineers features, and runs anomaly prediction."""
         record = self.fetcher.fetch_parsed_log_by_incident_id(incident_id)
         if not record:
             return {
@@ -53,7 +49,6 @@ class AnomalyDetector:
                 "reason": "Incident parsed log not found in log-parser-service"
             }
 
-        # Engineer features
         x = self.engineer.extract_features_single(record)
         is_anomaly, score, reason = self.model.predict_single(x)
         saved = self.repository.save_result(incident_id, is_anomaly, score, reason)
@@ -70,9 +65,7 @@ class AnomalyDetector:
         }
 
     def detect_anomalies_batch(self, incident_ids: List[int]) -> List[Dict[str, Any]]:
-        """Batch prediction for multiple incident IDs."""
         results = []
-        # Optimization: fetch all logs first
         all_logs = self.fetcher.fetch_all_parsed_logs()
         logs_map = {log["incidentId"]: log for log in all_logs}
 
@@ -82,7 +75,6 @@ class AnomalyDetector:
         for inc_id in incident_ids:
             record = logs_map.get(inc_id)
             if not record:
-                # Try fetching individually in case it's a new log
                 record = self.fetcher.fetch_parsed_log_by_incident_id(inc_id)
             
             if not record:
@@ -123,7 +115,6 @@ class AnomalyDetector:
         return self.repository.fetch_result_by_incident_id(incident_id)
 
     def get_status(self) -> Dict[str, Any]:
-        """Returns training status of the model."""
         result_count = len(self.repository.fetch_results())
         return {
             "model_trained": self.model.is_trained,
